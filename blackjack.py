@@ -1,10 +1,11 @@
 import difflib
 import getpass
+from random import choice
 import requests
 from colorama import Fore, Style, init
 init()
 getgamesplayed = 0
-SERVER_URL = "http://127.0.0.1:5000"
+SERVER_URL = "https://homoeomorphic-consumedly-launa.ngrok-free.dev" 
 money = 0
 password_cache = ''
 token_cache = ''
@@ -26,11 +27,19 @@ def get_leaderboard():
     global username, money, getgamesplayed
     try:
         r = requests.get(f"{SERVER_URL}/leaderboard", timeout=3)
-        return r.json()
+        data = r.json()
+        
+        # mark the current user for client highlighting
+        for entry in data.get("leaderboard", []):
+            if entry["username"] == username:
+                entry["highlight"] = True
+            else:
+                entry["highlight"] = False
+        return data
     except:
         print(Fore.RED + "Failed to retrieve leaderboard. Server might be down." + Style.RESET_ALL)
         return {
-            "leaderboard": [{"username": username, "money": money}]
+            "leaderboard": [{"username": username, "money": money, "highlight": True}]
         }
 
 def face_down():
@@ -95,8 +104,15 @@ def blackjack():
 
     try:
         bet = int(bet)
+        if bet > 2000 or bet <50:
+            print('The max range is 50-1000!')
+            return None
+        elif bet > money*0.5:
+            checkup = input("You're betting more than half your money! Press enter to confirm or press q to cancel")
+            if checkup == 'q':
+                return None
     except:
-        print("Invalid number.")
+        print("Invalid Response. Must be a number.")
         return None
 
     r = requests.post(f"{SERVER_URL}/start_blackjack", json={
@@ -119,11 +135,15 @@ def blackjack():
 
     # Player turn loop
     while True:
-        action = input("hit or stand: ").lower()
-
+        choices = ["hit", "stand", "double"]
+        response = input("hit,stand, or double: ").lower()
+        action = difflib.get_close_matches(response, choices, n=1, cutoff=0.3)
+        if not action:
+            print("Invalid action.")
+            continue
         r = requests.post(f"{SERVER_URL}/blackjack_action", json={
             "username": username,
-            "action": action,
+            "action": action[0],
             "token": token_cache  # include token
         }).json()
         if "token" in r:
